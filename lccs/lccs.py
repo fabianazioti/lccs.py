@@ -160,7 +160,7 @@ class LCCS:
         try:
             data = Utils._get(f'{self._url}/classification_systems/{_system_source_id.id}/style_formats')
         except Exception:
-            raise KeyError('Could not retrieve any style for {}'.format(system_source_name))
+            raise KeyError('Could not retrieve any style format for {}'.format(system_source_name))
         
         for i in data:
             if i['rel'] == 'style':
@@ -214,28 +214,33 @@ class LCCS:
             raise ValueError(f'Could not insert classification system {name}!')
         
         return retval
-    
-    def add_style(self, system_name: str, format_name: str, style_path: str):
+
+    def add_style(self, system_name: str, format_name: str, style_path: str = None, style_tex: str = None,
+                  style_name: str = None, style_extension: str = None):
         """Add a new style format system."""
         _format_id = self._get_format_identifier(format_name)
 
         _system_source_id = self._id(system_name)
-        
+
         url = f'{self._url}/classification_systems/{_system_source_id.id}/styles{self._access_token}'
-        
-        try:
-            style = {'style': open(style_path, 'rb')}
-        except RuntimeError:
-            raise ValueError(f'Could not open style file {style_path}.')
-        
-        data = dict()
-        data["style_format_id"] = _format_id['id']
+
+        if style_path:
+            try:
+                style = {'style': open(style_path, 'rb')}
+            except RuntimeError:
+                raise ValueError(f'Could not open style file {style_path}.')
+        elif style_tex:
+            style = {'style': (f'{style_name}.{style_extension}', f'{style_tex}')}
+        else:
+            raise ValueError('You must provide a file path or a string with the style!')
+
+        data = dict(style_format_id=_format_id['id'])
 
         try:
             retval = Utils._post(url, data=data, files=style)
         except RuntimeError:
             raise ValueError('Could not insert style!')
-        
+
         return retval
     
     def add_mapping(self, system_name_source: str, system_name_target: str, mappings):
