@@ -391,11 +391,23 @@ class LCCS:
 
         return retval
 
-    def create_style(self, system_name: str, options: dict, rules: list):
+    def validate_style_format(self, format_name: str):
+        """Check if a style format exists."""
+        sf = self.available_style_formats()
+
+        for i in sf:
+            if i.name == format_name:
+                return True
+        return False
+
+    def create_style(self, system_name: str, options: dict, rules: list, format_name: str):
         """Create style sld."""
         sld = SldGenerator.create_sld(options=options, rules=rules, layer_name=system_name)
 
-        self.add_style(system_name, 'GeoServer', style_tex=sld.decode("utf-8"), style_name='lccs-style', style_extension='sld')
+        if not self.validate_style_format(format_name):
+            raise ValueError(f'This is not a valid style format!')
+
+        self.add_style(system_name, format_name, style_tex=sld.decode("utf-8"), style_name='lccs-style', style_extension='sld')
 
         return
 
