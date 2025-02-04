@@ -31,7 +31,7 @@ class Utils:
     """Utils class for handling HTTP requests and other utility functions."""
 
     @staticmethod
-    def _get(url, params=None):
+    def _get(url, access_token=None, params=None):
         """Query the LCCS-WS using HTTP GET verb and return the result as a JSON document.
 
         Args:
@@ -44,10 +44,20 @@ class Utils:
         Raises:
             ValueError: If the response is not a valid JSON or cannot be processed.
         """
+<<<<<<< HEAD
         try:
             # Realiza a requisição GET usando httpx
             response = httpx.get(url, params=params)
             response.raise_for_status()  # Garante que a resposta foi bem-sucedida
+=======
+        _headers = {}
+        if access_token != None:
+            _headers = {
+                "x-api-key": access_token
+            }
+
+        response = requests.get(url, params=params, headers=_headers)
+>>>>>>> 7a0ee79d16a5ad588473daacf7744f600b812f30
 
             # Verifica o tipo de conteúdo da resposta
             content_type = response.headers.get('content-type', '').lower()
@@ -68,8 +78,20 @@ class Utils:
             raise ValueError(f"Invalid JSON response from {url}: {str(e)}")
 
     @staticmethod
+<<<<<<< HEAD
     def _post(url, data=None, json=None, files=None):
         """Send a POST request to the specified URL.
+=======
+    def _post(url, access_token, data=None, json=None, files=None):
+        """Request post method."""
+        _headers = {}
+        if access_token != None:
+            _headers = {
+                "x-api-key": access_token
+            }
+
+        response = requests.post(url, headers=_headers, data=data, files=files, json=json)
+>>>>>>> 7a0ee79d16a5ad588473daacf7744f600b812f30
 
         Args:
             url (str): The URL to send the POST request.
@@ -91,8 +113,20 @@ class Utils:
             raise ValueError(f"An error occurred while sending POST request to {url}: {str(e)}")
 
     @staticmethod
+<<<<<<< HEAD
     def _delete(url, params=None):
         """Send a DELETE request to the specified URL.
+=======
+    def _delete(url, access_token, params=None):
+        """Request delete method."""
+        _headers = {}
+        if access_token != None:
+            _headers = {
+                "x-api-key": access_token
+            }
+
+        response = requests.delete(url, params=params, headers=_headers)
+>>>>>>> 7a0ee79d16a5ad588473daacf7744f600b812f30
 
         Args:
             url (str): The URL to send the DELETE request.
