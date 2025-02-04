@@ -55,7 +55,7 @@ class LCCS:
     def _validate_language(self, language):
         """Get the support language from service."""
         if language in [e.value for e in self._support_l]:
-            return f'&language={language}'
+            return f'language={language}'
         else:
             s = ', '.join([e for e in self.allowed_language])
             raise KeyError(f'Language not supported! Use: {s}')
@@ -67,11 +67,14 @@ class LCCS:
 
     def _get_classification_systems(self):
         """Return the Classification Systems available in service."""
-        url = f'{self._url}/classification_systems{self._access_token}{self._language}'
+        if self._access_token:
+            url = f'{self._url}/classification_systems{self._access_token}&{self._language}'
+        else:
+            url = f'{self._url}/classification_systems?{self._language}'
         data = Utils._get(url)
         result = list()
 
-        [result.append(i['identifier']) for i in data]
+        [result.append(f"Title: {i['title']} id: {i['identifier']}") for i in data]
 
         return result
 
@@ -110,7 +113,10 @@ class LCCS:
         :rtype: dict
         """
         try:
-            url = f'{self._url}/classification_systems/{system}{self._access_token}{self._language}'
+            if self._access_token:
+                url = f'{self._url}/classification_systems/{system}{self._access_token}&{self._language}'
+            else:
+                url = f'{self._url}/classification_systems/{system}?{self._language}'
             data = Utils._get(url)
             return ClassificationSystem(data, self._validate)
         except Exception:
@@ -129,7 +135,10 @@ class LCCS:
         result = list()
 
         try:
-            data = Utils._get(f'{self._url}/mappings/{system_source}{self._access_token}{self._language}')
+            if self._access_token:
+                data = Utils._get(f'{self._url}/mappings/{system_source}{self._access_token}&{self._language}')
+            else:
+                data = Utils._get(f'{self._url}/mappings/{system_source}?{self._language}')
         except Exception:
             raise KeyError(f'Could not retrieve any available mapping for {system_source}')
 
@@ -185,7 +194,7 @@ class LCCS:
 
     @cached(cache=LRUCache(maxsize=128))
     def style_formats(self, system) -> List[StyleFormats]:
-        """Fetch styles of the a giving classification system.
+        """Fetch styles of a giving classification system.
 
         :param system: The id or identifier of a classification system.
         :type system: str

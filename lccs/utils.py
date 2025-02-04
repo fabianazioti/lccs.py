@@ -17,91 +17,142 @@
 #
 """Python Client Library for the LCCS Web Service."""
 import re
-import requests
+import httpx
 import jinja2
-
 from jsonschema import RefResolver, validate
 from pkg_resources import resource_filename
 
+# Caminho dos schemas e templates
 base_schemas_path = resource_filename(__name__, 'jsonschemas/')
 templateLoader = jinja2.FileSystemLoader(searchpath=resource_filename(__name__, 'templates/'))
 templateEnv = jinja2.Environment(loader=templateLoader)
 
-
 class Utils:
-    """Utils class."""
+    """Utils class for handling HTTP requests and other utility functions."""
 
     @staticmethod
     def _get(url, params=None):
         """Query the LCCS-WS using HTTP GET verb and return the result as a JSON document.
 
-        :param url: The URL to query must be a valid LCCS-WS endpoint.
-        :type url: str
+        Args:
+            url (str): The URL to query, must be a valid LCCS-WS endpoint.
+            params (dict, optional): Dictionary, list of tuples, or bytes to send in the query string.
 
-        :param params: (optional) Dictionary, list of tuples or bytes to send
-        in the query string for the underlying `Requests`.
-        :type params: dict
+        Returns:
+            dict: The parsed JSON response from the server.
 
-        :rtype: dict
-        :raises ValueError: If the response body does not contain a valid json.
+        Raises:
+            ValueError: If the response is not a valid JSON or cannot be processed.
         """
-        response = requests.get(url, params=params)
+        try:
+            # Realiza a requisição GET usando httpx
+            response = httpx.get(url, params=params)
+            response.raise_for_status()  # Garante que a resposta foi bem-sucedida
 
-        response.raise_for_status()
+            # Verifica o tipo de conteúdo da resposta
+            content_type = response.headers.get('content-type', '').lower()
 
-        content_type = response.headers.get('content-type')
+            if 'application/octet-stream' in content_type:
+                content = response.headers.get('content-disposition')
+                file_name = re.findall('filename=(.+)', content)[0] if content else 'unknown_file'
+                return file_name, response.content
 
-        if content_type == 'application/octet-stream':
+            if content_type not in ('application/json', 'application/geo+json'):
+                raise ValueError(f'HTTP response is not JSON: Content-Type: {content_type}')
 
-            content = response.headers.get('content-disposition')
+            return response.json()
 
-            try:
-                file_name = re.findall('filename=(.+)', content)[0]
-            except RuntimeError:
-                raise ValueError('Error while download file')
-
-            return file_name, response.content
-
-        elif content_type not in ('application/json', 'application/geo+json'):
-            raise ValueError('HTTP response is not JSON: Content-Type: {}'.format(content_type))
-
-        return response.json()
+        except httpx.RequestError as e:
+            raise ValueError(f"An error occurred while requesting {url}: {str(e)}")
+        except ValueError as e:
+            raise ValueError(f"Invalid JSON response from {url}: {str(e)}")
 
     @staticmethod
     def _post(url, data=None, json=None, files=None):
-        """Request post method."""
-        response = requests.post(url, data=data, files=files, json=json)
+        """Send a POST request to the specified URL.
 
-        response.raise_for_status()
+        Args:
+            url (str): The URL to send the POST request.
+            data (dict, optional): The form data to include in the request.
+            json (dict, optional): The JSON body to send in the request.
+            files (dict, optional): Files to be uploaded.
 
-        return response.json()
+        Returns:
+            dict: The parsed JSON response from the server.
+
+        Raises:
+            ValueError: If the request fails or the response cannot be parsed.
+        """
+        try:
+            response = httpx.post(url, data=data, files=files, json=json)
+            response.raise_for_status()
+            return response.json()
+        except httpx.RequestError as e:
+            raise ValueError(f"An error occurred while sending POST request to {url}: {str(e)}")
 
     @staticmethod
     def _delete(url, params=None):
-        """Request delete method."""
-        response = requests.delete(url, params=params)
+        """Send a DELETE request to the specified URL.
 
-        response.raise_for_status()
+        Args:
+            url (str): The URL to send the DELETE request.
+            params (dict, optional): The parameters to include in the DELETE request.
 
-        return response
+        Returns:
+            httpx.Response: The raw HTTP response from the server.
+
+        Raises:
+            ValueError: If the request fails.
+        """
+        try:
+            response = httpx.delete(url, params=params)
+            response.raise_for_status()
+            return response
+        except httpx.RequestError as e:
+            raise ValueError(f"An error occurred while sending DELETE request to {url}: {str(e)}")
 
     @staticmethod
     def validate(lccs_object):
-        """Validate a lucc Object using its jsonschemas.
+        """Validate a LUCC object using its JSON schema.
 
-        :raise ValidationError: raise a ValidationError if the lucc Object couldn't be validated.
+        Args:
+            lccs_object (object): The LUCC object to be validated.
+
+        Raises:
+            ValidationError: If the object fails to validate.
         """
-        resolver = RefResolver("file://{}{}/".format(base_schemas_path, lccs_object))
-
+        resolver = RefResolver(f"file://{base_schemas_path}/{lccs_object}")
         validate(lccs_object, lccs_object._schema, resolver=resolver)
 
     @staticmethod
     def render_html(template_name, **kwargs):
-        """Render Jinja2 HTML template."""
+        """Render a Jinja2 HTML template.
+
+        Args:
+            template_name (str): The name of the template to render.
+            **kwargs: The context variables to pass to the template.
+
+        Returns:
+            str: The rendered HTML template.
+        """
         template = templateEnv.get_template(template_name)
         return template.render(**kwargs)
 
     @staticmethod
     def get_id_by_name(name, classes):
-        """Get id of class."""
-        return list(filter(lambda x: x.name == name, classes))[0]['id']
+        """Get the ID of a class by its name.
+
+        Args:
+            name (str): The name of the class.
+            classes (list): A list of class objects containing 'name' and 'id' attributes.
+
+        Returns:
+            str: The ID of the class with the matching name.
+
+        Raises:
+            IndexError: If no matching class is found.
+        """
+        try:
+            return next(class_obj for class_obj in classes if class_obj['name'] == name)['id']
+        except StopIteration:
+            raise ValueError(f"Class with name '{name}' not found")
